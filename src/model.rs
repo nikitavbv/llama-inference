@@ -1,8 +1,8 @@
 use {
     tracing::info,
-    candle_core::{Device, DType},
+    candle_core::{Device, DType, Tensor},
     candle_nn::VarBuilder,
-    candle_transformers::models::llama::{self, Llama, LlamaConfig},
+    candle_transformers::{models::llama::{self, Llama, LlamaConfig}, generation::LogitsProcessor},
     tokenizers::Tokenizer,
 };
 
@@ -10,6 +10,9 @@ use {
 pub struct ChatModel {
     llama: Llama,
     tokenizer: Tokenizer,
+    device: Device,
+
+    eos_token_id: u32,
 }
 
 pub struct ChatMessage {
@@ -46,7 +49,7 @@ impl ChatModel {
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
 
-        let cache = llama::Cache::new(true, dtype, &config, &device).unwrap();
+        let cache = llama::Cache::new(true, dtype, &config, &device).unwrap(); // TODO: disable kv-cache?
 
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&filenames, dtype, &device).unwrap() };
 
@@ -54,12 +57,56 @@ impl ChatModel {
         let tokenizer = Tokenizer::from_file(tokenizer_filename).unwrap();
 
         Self {
+            eos_token_id: tokenizer.token_to_id("</s>").unwrap(),
+
             llama,
             tokenizer,
+            device,
         }
     }
 
     pub fn chat_completions(&self, chat: Vec<ChatMessage>) -> ChatMessage {
+        let prompt = "Rust is the best programming language because".to_owned();
+
+        let mut tokens = self.tokenizer
+            .encode(prompt, true)
+            .unwrap()
+            .get_ids()
+            .to_vec();
+
+        let use_kv_cache = true;
+
+        let max_tokens = 10000;
+        let mut index_pos = 0;
+
+        let mut logits_processor = LogitsProcessor::new(299792458, None, None);
+
+        for index in 0..max_tokens {
+            let (context_size, context_index) = if use_kv_cache && index > 0 {
+                (1, index_pos)
+            } else {
+                (tokens.len(), 0)
+            };
+            let ctxt = &tokens[tokens.len().saturating_sub(context_size)..];
+            let input = Tensor::new(ctxt, &self.device).unwrap().unsqueeze(0).unwrap();
+            let logits = self.llama.forward(&input, context_index).unwrap();
+            let logits = logits.squeeze(0).unwrap();
+            index_pos += ctxt.len();
+
+            let next_token = logits_processor.sample(&logits).unwrap();
+            tokens.push(next_token);
+
+            let tokens = self.tokenizer.decode(&tokens, false).unwrap();
+            println!("{}", tokens);
+
+            if next_token == self.eos_token_id {
+                break;
+            }
+        }
+
+        let tokens = self.tokenizer.decode(&tokens, true).unwrap();
+        info!("result: {:?}", tokens);
+
         unimplemented!()
     }
 }
