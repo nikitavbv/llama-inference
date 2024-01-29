@@ -4,6 +4,7 @@ use {
     candle_nn::VarBuilder,
     candle_transformers::{models::llama::{self, Llama, LlamaConfig}, generation::LogitsProcessor},
     tokenizers::Tokenizer,
+    rand::Rng,
 };
 
 // based on https://github.com/huggingface/candle/blob/main/candle-examples/examples/llama/main.rs
@@ -79,7 +80,7 @@ impl ChatModel {
         let max_tokens = 10000;
         let mut index_pos = 0;
 
-        let mut logits_processor = LogitsProcessor::new(299792458, None, None);
+        let mut logits_processor = LogitsProcessor::new(rand::thread_rng().gen(), None, None);
 
         for index in 0..max_tokens {
             let (context_size, context_index) = if use_kv_cache && index > 0 {
