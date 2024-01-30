@@ -80,7 +80,7 @@ impl ChatModel {
         let max_tokens = 10000;
         let mut index_pos = 0;
 
-        let mut logits_processor = LogitsProcessor::new(rand::thread_rng().gen(), None, None);
+        let mut logits_processor = LogitsProcessor::new(rand::thread_rng().gen(), Some(0.7), None);
 
         for index in 0..max_tokens {
             let (context_size, context_index) = if use_kv_cache && index > 0 {
