@@ -30,7 +30,7 @@ jobs:
         context: '.'
         push: true
         tags: |
-          ghcr.io/nikitavbv/llama-inference/llama-inference:latest
-          ghcr.io/nikitavbv/llama-inference/llama-inference:0.1.${{ github.run_number }}
+          ghcr.io/nikitavbv/llama-inference:latest
+          ghcr.io/nikitavbv/llama-inference:0.1.${{ github.run_number }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
