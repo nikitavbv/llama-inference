@@ -38,7 +38,7 @@ impl ChatModel {
 
         let hf_api = Api::new().unwrap();
         let hf_api = hf_api.repo(Repo::with_revision(
-            "meta-llama/Llama-2-7b-hf".to_owned(),
+            "meta-llama/Llama-2-7b-chat-hf".to_owned(),
             RepoType::Model,
             "main".to_owned()
         ));
