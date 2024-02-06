@@ -51,7 +51,7 @@ impl ChatModel {
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
 
-        let cache = llama::Cache::new(true, dtype, &config, &device).unwrap(); // TODO: disable kv-cache?
+        let cache = llama::Cache::new(false, dtype, &config, &device).unwrap(); // TODO: disable kv-cache?
 
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&filenames, dtype, &device).unwrap() };
 
@@ -95,7 +95,7 @@ impl ChatModel {
 
         let mut output_tokens = Vec::new();
 
-        let use_kv_cache = true;
+        let use_kv_cache = false;
 
         let max_tokens = 10000;
         let mut index_pos = 0;
