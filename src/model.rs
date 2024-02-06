@@ -93,6 +93,8 @@ impl ChatModel {
             tokens.append(&mut message_tokens);
         }
 
+        let mut output_tokens = Vec::new();
+
         let use_kv_cache = true;
 
         let max_tokens = 10000;
@@ -114,8 +116,9 @@ impl ChatModel {
 
             let next_token = logits_processor.sample(&logits).unwrap();
             tokens.push(next_token);
+            output_tokens.push(next_token);
 
-            let tokens = self.tokenizer.decode(&tokens, false).unwrap();
+            let tokens = self.tokenizer.decode(&output_tokens, false).unwrap();
             println!("{}", tokens);
 
             if next_token == self.eos_token_id {
@@ -125,7 +128,7 @@ impl ChatModel {
 
         ChatMessage {
             role: ChatRole::Assistant,
-            content: self.tokenizer.decode(&tokens, true).unwrap(),
+            content: self.tokenizer.decode(&output_tokens, true).unwrap(),
         }
     }
 }
