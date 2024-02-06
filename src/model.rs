@@ -21,6 +21,7 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+#[derive(PartialEq, Eq)]
 pub enum ChatRole {
     System,
     User,
@@ -67,13 +68,30 @@ impl ChatModel {
     }
 
     pub fn chat_completions(&self, chat: Vec<ChatMessage>) -> ChatMessage {
-        let prompt = "[INST] Hi! How is your day going? [/INST] ".to_owned();
+        let mut tokens = Vec::new();
 
-        let mut tokens = self.tokenizer
-            .encode(prompt, true)
-            .unwrap()
-            .get_ids()
-            .to_vec();
+        for message in chat.chunks(2) {
+            if message[0].role != ChatRole::User {
+                panic!("expected role of message to be user");
+            }
+            if message.len() > 1 && message[1].role != ChatRole::Assistant {
+                panic!("expected role of message to be assistant");
+            }
+
+            let prompt = if message.len() == 1 {
+                format!("[INST] {} [/INST] ", message[0].content)
+            } else {
+                format!("[INST] {} [/INST] {} ", message[0].content, message[1].content)
+            };
+
+            let mut message_tokens = self.tokenizer
+                .encode(prompt, true)
+                .unwrap()
+                .get_ids()
+                .to_vec();
+
+            tokens.append(&mut message_tokens);
+        }
 
         let use_kv_cache = true;
 
@@ -105,10 +123,10 @@ impl ChatModel {
             }
         }
 
-        let tokens = self.tokenizer.decode(&tokens, true).unwrap();
-        info!("result: {:?}", tokens);
-
-        unimplemented!()
+        ChatMessage {
+            role: ChatRole::Assistant,
+            content: self.tokenizer.decode(&tokens, true).unwrap(),
+        }
     }
 }
 
