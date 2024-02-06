@@ -67,7 +67,7 @@ impl ChatModel {
     }
 
     pub fn chat_completions(&self, chat: Vec<ChatMessage>) -> ChatMessage {
-        let prompt = "Rust is the best programming language because".to_owned();
+        let prompt = "[INST] Hi! How is your day going? [/INST] ".to_owned();
 
         let mut tokens = self.tokenizer
             .encode(prompt, true)
