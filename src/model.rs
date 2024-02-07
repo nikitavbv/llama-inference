@@ -1,4 +1,5 @@
 use {
+    std::time::Instant,
     tracing::info,
     candle_core::{Device, DType, Tensor},
     candle_nn::VarBuilder,
@@ -102,6 +103,7 @@ impl ChatModel {
 
         let mut logits_processor = LogitsProcessor::new(rand::thread_rng().gen(), Some(0.7), None);
 
+        let started_at = Instant::now();
         for index in 0..max_tokens {
             let (context_size, context_index) = if use_kv_cache && index > 0 {
                 (1, index_pos)
@@ -122,6 +124,7 @@ impl ChatModel {
                 break;
             }
         }
+        info!("finished generating response: {} tokens, {}s", tokens.len(), (Instant::now() - started_at).as_secs());
 
         ChatMessage {
             role: ChatRole::Assistant,
