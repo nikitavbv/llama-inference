@@ -51,7 +51,7 @@ impl ChatModel {
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
 
-        let cache = llama::Cache::new(false, dtype, &config, &device).unwrap(); // TODO: disable kv-cache?
+        let cache = llama::Cache::new(false, dtype, &config, &device).unwrap();
 
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&filenames, dtype, &device).unwrap() };
 
@@ -117,9 +117,6 @@ impl ChatModel {
             let next_token = logits_processor.sample(&logits).unwrap();
             tokens.push(next_token);
             output_tokens.push(next_token);
-
-            let tokens = self.tokenizer.decode(&output_tokens, false).unwrap();
-            println!("{}", tokens);
 
             if next_token == self.eos_token_id {
                 break;
