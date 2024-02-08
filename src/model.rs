@@ -69,6 +69,8 @@ impl ChatModel {
     }
 
     pub fn chat_completions(&self, chat: Vec<ChatMessage>) -> ChatMessage {
+        info!("handling chat completions request");
+
         let mut tokens = Vec::new();
 
         for message in chat.chunks(2) {
