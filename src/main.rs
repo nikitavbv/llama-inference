@@ -1,18 +1,20 @@
 use {
-    std::sync::Arc,
-    tracing::{Level, info, warn},
-    tracing_subscriber::FmtSubscriber,
-    tokio::{net::TcpListener, sync::Mutex},
-    serde::{Serialize, Deserialize},
-    axum::{
-        Router,
-        routing::{get, post},
-        http::{StatusCode, Request},
-        response::IntoResponse,
-        body::Body,
-        extract::{State, Json},
-    },
     crate::model::ChatModel,
+    async_openai::types::{ChatChoice, ChatCompletionResponseMessage, CreateChatCompletionResponse, Role},
+    axum::{
+        body::Body,
+        extract::{Json, State},
+        http::{Request, StatusCode},
+        response::IntoResponse,
+        routing::{get, post},
+        Router,
+    },
+    rand::{distributions::Alphanumeric, Rng},
+    serde::{Deserialize, Serialize},
+    std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}},
+    tokio::{net::TcpListener, sync::Mutex},
+    tracing::{info, warn, Level},
+    tracing_subscriber::FmtSubscriber,
 };
 
 mod model;
@@ -20,11 +22,6 @@ mod model;
 #[derive(Debug, Deserialize)]
 struct ChatCompletionsRequest {
     messages: Vec<ChatMessage>,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsResponse {
-    choices: Vec<ChatCompletion>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,12 +36,6 @@ enum ChatRole {
     System,
     User,
     Assistant,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletion {
-    index: u32,
-    message: ChatMessage,
 }
 
 #[derive(Clone)]
@@ -74,10 +65,15 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn chat_completions(State(state): State<AppState>, Json(request): Json<ChatCompletionsRequest>) -> Json<ChatCompletionsResponse> {
+async fn chat_completions(
+    State(state): State<AppState>,
+    Json(request): Json<ChatCompletionsRequest>,
+) -> Json<CreateChatCompletionResponse> {
     let model = state.model.lock().await;
     let completion = model.chat_completions(
-        request.messages.into_iter()
+        request
+            .messages
+            .into_iter()
             .map(|message| model::ChatMessage {
                 role: match message.role {
                     ChatRole::System => model::ChatRole::System,
@@ -86,19 +82,29 @@ async fn chat_completions(State(state): State<AppState>, Json(request): Json<Cha
                 },
                 content: message.content,
             })
-            .collect()
+            .collect(),
     );
 
-    Json(ChatCompletionsResponse {
-        choices: vec![
-            ChatCompletion {
-                index: 0,
-                message: ChatMessage {
-                    role: ChatRole::Assistant,
-                    content: completion.content,
-                },
-            }
-        ],
+    Json(CreateChatCompletionResponse {
+        id: response_id(),
+        created: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32,
+        model: "llama-7b".to_owned(),
+        object: "chat.completion".to_owned(),
+
+        choices: vec![ChatChoice {
+            index: 0,
+            #[allow(deprecated)] message: ChatCompletionResponseMessage {
+                role: Role::Assistant,
+                content: Some(completion.content),
+                tool_calls: None,
+                function_call: None,
+            },
+            finish_reason: None,
+            logprobs: None,
+        }],
+
+        system_fingerprint: None,
+        usage: None,
     })
 }
 
@@ -107,12 +113,18 @@ async fn root() -> &'static str {
 }
 
 async fn not_found_handler(req: Request<Body>) -> impl IntoResponse {
-    warn!(url=req.uri().to_string(), method=req.method().to_string(), "endpoint is not implemented");
+    warn!(
+        url = req.uri().to_string(),
+        method = req.method().to_string(),
+        "endpoint is not implemented"
+    );
     (StatusCode::NOT_FOUND, "endpoint not implemented\n")
 }
 
+fn response_id() -> String {
+    rand::thread_rng().sample_iter(&Alphanumeric).take(12).map(|b| b as char).collect()
+}
+
 fn init_logging() {
-    FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .init();
+    FmtSubscriber::builder().with_max_level(Level::INFO).init();
 }
