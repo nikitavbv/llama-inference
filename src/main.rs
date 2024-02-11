@@ -69,7 +69,7 @@ async fn chat_completions(
     State(state): State<AppState>,
     Json(request): Json<ChatCompletionsRequest>,
 ) -> Json<CreateChatCompletionResponse> {
-    let model = state.model.lock().await;
+    let mut model = state.model.lock().await;
     let completion = model.chat_completions(
         request
             .messages

@@ -52,7 +52,7 @@ impl ChatModel {
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
 
-        let cache = llama::Cache::new(false, dtype, &config, &device).unwrap();
+        let cache = llama::Cache::new(true, dtype, &config, &device).unwrap();
 
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&filenames, dtype, &device).unwrap() };
 
@@ -68,8 +68,13 @@ impl ChatModel {
         }
     }
 
-    pub fn chat_completions(&self, chat: Vec<ChatMessage>) -> ChatMessage {
+    pub fn chat_completions(&mut self, chat: Vec<ChatMessage>) -> ChatMessage {
         info!("handling chat completions request");
+
+        // clear kv-cache first
+        // TODO: can this be optimized by persisting kv-cache between sessions?
+        let config = self.llama.get_config().clone();
+        self.llama.clear_cache(&config);
 
         let mut tokens = Vec::new();
 
@@ -98,7 +103,7 @@ impl ChatModel {
 
         let mut output_tokens = Vec::new();
 
-        let use_kv_cache = false;
+        let use_kv_cache = true;
 
         let max_tokens = 10000;
         let mut index_pos = 0;
