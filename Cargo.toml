@@ -23,3 +23,5 @@ candle-nn = { git = "https://github.com/nikitavbv/candle" }
 tokenizers = "0.15.1"
 rand = "0.8.5"
 async-openai = "0.18.3"
+metrics = "0.22.1"
+metrics-exporter-prometheus = "0.13.1"

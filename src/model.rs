@@ -6,6 +6,7 @@ use {
     candle_transformers::{models::llama::{self, Llama, LlamaConfig}, generation::LogitsProcessor},
     tokenizers::Tokenizer,
     rand::Rng,
+    metrics::counter,
 };
 
 // based on https://github.com/huggingface/candle/blob/main/candle-examples/examples/llama/main.rs
@@ -112,6 +113,7 @@ impl ChatModel {
 
         let started_at = Instant::now();
         for index in 0..max_tokens {
+            let token_started_at = Instant::now();
             let (context_size, context_index) = if use_kv_cache && index > 0 {
                 (1, index_pos)
             } else {
@@ -126,6 +128,9 @@ impl ChatModel {
             let next_token = logits_processor.sample(&logits).unwrap();
             tokens.push(next_token);
             output_tokens.push(next_token);
+
+            counter!("tokens_generated").increment(1);
+            counter!("total_generation_time_millis").increment((Instant::now() - token_started_at).as_millis() as u64);
 
             if next_token == self.eos_token_id {
                 break;

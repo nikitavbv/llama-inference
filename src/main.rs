@@ -9,6 +9,7 @@ use {
         routing::{get, post},
         Router,
     },
+    metrics_exporter_prometheus::PrometheusBuilder,
     rand::{distributions::Alphanumeric, Rng},
     serde::{Deserialize, Serialize},
     std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}},
@@ -46,6 +47,7 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     init_logging();
+    PrometheusBuilder::new().install().unwrap();
 
     let addr = "0.0.0.0:3000";
     let model = ChatModel::load();
