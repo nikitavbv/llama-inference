@@ -10,6 +10,7 @@ use {
         routing::{get, post},
         Router,
     },
+    metrics_util::layers::Layer,
     metrics_exporter_prometheus::PrometheusBuilder,
     rand::{distributions::Alphanumeric, Rng},
     serde::{Deserialize, Serialize},
@@ -17,9 +18,11 @@ use {
     tokio::net::TcpListener,
     tracing::{info, warn, Level},
     tracing_subscriber::FmtSubscriber,
+    crate::utils::PrefixLayer,
 };
 
 mod model;
+mod utils;
 
 #[derive(Debug, Deserialize)]
 struct ChatCompletionsRequest {
