@@ -15,7 +15,7 @@ use {
     rand::{distributions::Alphanumeric, Rng},
     serde::{Deserialize, Serialize},
     std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}},
-    tokio::net::TcpListener,
+    tokio::{net::TcpListener, join},
     tracing::{info, warn, Level},
     tracing_subscriber::FmtSubscriber,
     crate::utils::PrefixLayer,
@@ -51,7 +51,9 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     init_logging();
-    PrometheusBuilder::new().install().unwrap();
+
+    let (recorder, prometheus_future) = PrometheusBuilder::new().build().unwrap();
+    metrics::set_global_recorder(PrefixLayer.layer(recorder)).unwrap();
 
     let addr = "0.0.0.0:3000";
     let model = ChatModel::load();
@@ -68,7 +70,12 @@ async fn main() {
         .with_state(state);
 
     let listener = TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let _ = join!(
+        async {
+            axum::serve(listener, app).await.unwrap()
+        },
+        prometheus_future,
+    );
 }
 
 async fn chat_completions(
