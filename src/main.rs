@@ -1,7 +1,15 @@
 use {
     std::sync::Mutex,
     crate::model::ChatModel,
-    async_openai::types::{ChatChoice, ChatCompletionResponseMessage, CreateChatCompletionResponse, Role},
+    async_openai::types::{
+        ChatChoice,
+        ChatCompletionResponseMessage,
+        CreateChatCompletionResponse,
+        Role,
+        CreateChatCompletionRequest,
+        ChatCompletionRequestMessage,
+        ChatCompletionRequestUserMessageContent,
+    },
     axum::{
         body::Body,
         extract::{Json, State},
@@ -13,35 +21,18 @@ use {
     metrics_util::layers::Layer,
     metrics_exporter_prometheus::PrometheusBuilder,
     rand::{distributions::Alphanumeric, Rng},
-    serde::{Deserialize, Serialize},
     std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}},
     tokio::{net::TcpListener, join},
     tracing::{info, warn, Level},
     tracing_subscriber::FmtSubscriber,
-    crate::utils::PrefixLayer,
+    crate::{
+        utils::PrefixLayer,
+        model::{ChatMessage, ChatRole},
+    },
 };
 
 mod model;
 mod utils;
-
-#[derive(Debug, Deserialize)]
-struct ChatCompletionsRequest {
-    messages: Vec<ChatMessage>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatMessage {
-    role: ChatRole,
-    content: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum ChatRole {
-    System,
-    User,
-    Assistant,
-}
 
 #[derive(Clone)]
 struct AppState {
@@ -80,7 +71,7 @@ async fn main() {
 
 async fn chat_completions(
     State(state): State<AppState>,
-    Json(request): Json<ChatCompletionsRequest>,
+    Json(request): Json<CreateChatCompletionRequest>,
 ) -> Json<CreateChatCompletionResponse> {
     let completion = tokio::task::spawn_blocking(move || {
         let mut model = state.model.lock().unwrap();
@@ -89,13 +80,23 @@ async fn chat_completions(
             request
                 .messages
                 .into_iter()
-                .map(|message| model::ChatMessage {
-                    role: match message.role {
-                        ChatRole::System => model::ChatRole::System,
-                        ChatRole::User => model::ChatRole::User,
-                        ChatRole::Assistant => model::ChatRole::Assistant,
+                .map(|message| match message {
+                    ChatCompletionRequestMessage::System(message) => ChatMessage {
+                        role: ChatRole::System,
+                        content: message.content,
                     },
-                    content: message.content,
+                    ChatCompletionRequestMessage::User(message) => ChatMessage {
+                        role: ChatRole::User,
+                        content: match message.content {
+                            ChatCompletionRequestUserMessageContent::Text(text) => text,
+                            other => panic!("message content not implemented: {:?}", other),
+                        },
+                    },
+                    ChatCompletionRequestMessage::Assistant(message) => ChatMessage {
+                        role: ChatRole::Assistant,
+                        content: message.content.unwrap(),
+                    },
+                    other => panic!("message type not implemented: {:?}", other),
                 })
                 .collect(),
         )
