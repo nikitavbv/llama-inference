@@ -26,3 +26,6 @@ async-openai = "0.18.3"
 metrics = "0.22.1"
 metrics-util = "0.16.2"
 metrics-exporter-prometheus = "0.13.1"
+
+[features]
+gpu = ["candle-core/cuda"]

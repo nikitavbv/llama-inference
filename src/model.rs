@@ -36,7 +36,7 @@ impl ChatModel {
 
         info!("loading model");
 
-        let device = Device::Cpu;
+        let device = Device::cuda_if_available(0).unwrap();
         let dtype = DType::F32;
 
         let hf_api = Api::new().unwrap();
@@ -101,6 +101,8 @@ impl ChatModel {
 
             tokens.append(&mut message_tokens);
         }
+
+        // TODO: add check that tokens are not empty (or else there will be error inside model implementation)
 
         let mut output_tokens = Vec::new();
 
